@@ -1,5 +1,11 @@
-# -*- coding: utf-8 -*-
+import urllib
+
 from youtrack import YouTrackException
+from youtrack.exceptions import LogicException
+
+
+def urlquote(s):
+    return urllib.parse.quote(utf8encode(s), safe="")
 
 
 def utf8encode(source):
@@ -175,8 +181,3 @@ def create_bundle_safe(connection, bundle_name, bundle_type):
 def calculate_missing_value_names(bundle, value_names):
     bundle_elements_names = [elem.name.lower() for elem in bundle.values]
     return [value for value in value_names if value.lower() not in bundle_elements_names]
-
-
-class LogicException(Exception):
-    def __init__(self, msg):
-        Exception.__init__(self, msg)

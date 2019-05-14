@@ -19,24 +19,16 @@ import re
 import io
 
 import youtrack.exceptions
-
-def urlquote(s):
-    return urllib.parse.quote(utf8encode(s), safe="")
+from youtrack.helpers import urlquote, utf8encode
 
 
-def utf8encode(source):
-    if isinstance(source, str):
-        source = source.encode('utf-8')
-    return source
-
-
-def relogin_on_401(f):
-    @functools.wraps(f)
+def relogin_on_401(function):
+    @functools.wraps(function)
     def wrapped(self, *args, **kwargs):
         attempts = 10
         while attempts:
             try:
-                return f(self, *args, **kwargs)
+                return function(self, *args, **kwargs)
             except youtrack.exceptions.YouTrackException as e:
                 if e.response.status not in (401, 403, 500, 504):
                     raise e
@@ -45,7 +37,7 @@ def relogin_on_401(f):
                 else:
                     self._login(*self._credentials)
                 attempts -= 1
-        return f(self, *args, **kwargs)
+        return function(self, *args, **kwargs)
 
     return wrapped
 

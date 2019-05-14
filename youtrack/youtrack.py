@@ -5,9 +5,10 @@ YouTrack 2.0 REST API (python 3 version)
 
 import re
 from xml.dom import Node
-from xml.dom import minidom
 from xml.dom.minidom import Document
 from xml.sax.saxutils import escape
+
+from youtrack.exceptions import YouTrackException
 
 basestring = (str, bytes)
 EXISTING_FIELD_TYPES = {
@@ -57,35 +58,6 @@ class Py3Cmp:
 
     def __le__(self, other):
         return self.__cmp__(other) <= 0
-
-
-class YouTrackBroadException(Exception):
-    def __init__(self, msg):
-        self.message = msg
-        super().__init__(msg)
-
-
-class YouTrackException(Exception):
-    def __init__(self, url, response, content):
-        self.response = response
-        self.content = content
-        msg = 'Error for [' + url + "]: " + str(response.status)
-
-        if response.reason is not None:
-            msg += ": " + response.reason
-
-        if 'content-type' in response:
-            ct = response["content-type"]
-            if ct is not None and ct.find('text/html') == -1:
-                try:
-                    xml = minidom.parseString(content)
-                    self.error = YouTrackError(xml, self)
-                    msg += ": " + self.error.error
-                except YouTrackBroadException:
-                    self.error = content
-                    msg += ": " + self.error
-
-        super().__init__(msg)
 
 
 class YouTrackObject(Py3Cmp):
