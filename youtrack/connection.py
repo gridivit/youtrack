@@ -43,9 +43,11 @@ def relogin_on_401(function):
 
 
 class Connection(object):
-    def __init__(self, url, login=None, password=None, proxy_info=None, api_key=None):
-        self.http = httplib2.Http(disable_ssl_certificate_validation=True) if proxy_info is None else httplib2.Http(
-            proxy_info=proxy_info, disable_ssl_certificate_validation=True)
+    def __init__(self, url, login=None, password=None, proxy_info=None, api_key=None, disable_ssl=True):
+        if proxy_info is None:
+            self.http = httplib2.Http(disable_ssl_certificate_validation=disable_ssl)
+        else:
+            self.http = httplib2.Http(proxy_info=proxy_info, disable_ssl_certificate_validation=disable_ssl)
 
         # Remove the last character of the url ends with "/"
         if url:
