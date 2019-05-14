@@ -18,6 +18,7 @@ import functools
 import re
 import io
 
+import youtrack.exceptions
 
 def urlquote(s):
     return urllib.parse.quote(utf8encode(s), safe="")
@@ -36,7 +37,7 @@ def relogin_on_401(f):
         while attempts:
             try:
                 return f(self, *args, **kwargs)
-            except youtrack.YouTrackException as e:
+            except youtrack.exceptions.YouTrackException as e:
                 if e.response.status not in (401, 403, 500, 504):
                     raise e
                 if e.response.status == 504:
@@ -72,7 +73,7 @@ class Connection(object):
             urllib.parse.quote_plus(password), 'POST',
             headers={'Content-Length': '0', 'Connection': 'keep-alive'})
         if response.status != 200:
-            raise youtrack.YouTrackException('/user/login', response, content)
+            raise youtrack.exceptions.YouTrackException('/user/login', response, content)
         self.headers = {'Cookie': response['set-cookie'],
                         'Cache-Control': 'no-cache'}
 
@@ -99,7 +100,7 @@ class Connection(object):
         _illegal_xml_chars_re = re.compile('[%s]' % ''.join(_illegal_ranges))
         content = re.sub(_illegal_xml_chars_re, '', content.decode('utf-8')).encode('utf-8')
         if response.status != 200 and response.status != 201 and (ignore_status != response.status):
-            raise youtrack.YouTrackException(url, response, content)
+            raise youtrack.exceptions.YouTrackException(url, response, content)
 
         return response, content
 
@@ -110,12 +111,12 @@ class Connection(object):
                     'text/xml') != -1) and content is not None and content != '':
                 try:
                     return minidom.parseString(content)
-                except youtrack.YouTrackBroadException:
+                except youtrack.exceptions.YouTrackBroadException:
                     return ""
             elif response['content-type'].find('application/json') != -1 and content is not None and content != '':
                 try:
                     return json.loads(content)
-                except youtrack.YouTrackBroadException:
+                except youtrack.exceptions.YouTrackBroadException:
                     return ""
 
         if method == 'PUT' and ('location' in response.keys()):
@@ -235,14 +236,14 @@ class Connection(object):
                 print("IssueId: ", issue_id)
                 print("Attachment filename: ", attach_name)
                 print("Attachment URL: ", attach_url)
-            except youtrack.YouTrackBroadException:
+            except youtrack.exceptions.YouTrackBroadException:
                 pass
-        except youtrack.YouTrackBroadException as e:
+        except youtrack.exceptions.YouTrackBroadException as e:
             try:
                 print(content.geturl())
                 print(content.getcode())
                 print(content.info())
-            except youtrack.YouTrackBroadException:
+            except youtrack.exceptions.YouTrackBroadException:
                 pass
             raise e
 
@@ -274,7 +275,7 @@ class Connection(object):
         else:
             try:
                 params['created'] = self.get_issue(issue_id)['created']
-            except youtrack.YouTrackException:
+            except youtrack.exceptions.YouTrackException:
                 params['created'] = str(calendar.timegm(datetime.now().timetuple()) * 1000)
 
         url = self.base_url + url_prefix + issue_id + "/attachment?" + urllib.parse.urlencode(params)
@@ -462,7 +463,7 @@ class Connection(object):
         response = ""
         try:
             response = result.toxml().encode('utf-8')
-        except youtrack.YouTrackBroadException:
+        except youtrack.exceptions.YouTrackBroadException:
             sys.stderr.write("can't parse response")
             sys.stderr.write("request was")
             sys.stderr.write(xml)
@@ -906,7 +907,7 @@ class Connection(object):
             xml = minidom.parseString(content)
             return [youtrack.WorkItem(e, self) for e in xml.documentElement.childNodes if
                     e.nodeType == Node.ELEMENT_NODE]
-        except youtrack.YouTrackException as e:
+        except youtrack.exceptions.YouTrackException as e:
             print("Can't get work items.", str(e))
             return []
 
@@ -972,7 +973,7 @@ class Connection(object):
         try:
             cont = self._get('/admin/timetracking')
             return youtrack.GlobalTimeTrackingSettings(cont, self)
-        except youtrack.YouTrackException as e:
+        except youtrack.exceptions.YouTrackException as e:
             if e.response.status != 404:
                 raise e
 
@@ -980,7 +981,7 @@ class Connection(object):
         try:
             cont = self._get('/admin/project/' + project_id + '/timetracking')
             return youtrack.ProjectTimeTrackingSettings(cont, self)
-        except youtrack.YouTrackException as e:
+        except youtrack.exceptions.YouTrackException as e:
             if e.response.status != 404:
                 raise e
 
