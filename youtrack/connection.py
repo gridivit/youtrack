@@ -42,7 +42,7 @@ def relogin_on_401(function):
 
 
 class Connection(object):
-    def __init__(self, url, token, proxy_info=None, disable_ssl=True):
+    def __init__(self, url, token, proxy_info=None, disable_ssl=False):
         if proxy_info is None:
             self.http = httplib2.Http(disable_ssl_certificate_validation=disable_ssl)
         else:
