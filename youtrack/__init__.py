@@ -8,5 +8,3 @@ else:
         version = __version__
     else:
         version = '{} build {}'.format('.'.join(version[:3]), version[3])
-
-from youtrack.youtrack import *  # noqa

@@ -4,11 +4,11 @@ YouTrack 2.0 REST API (python 3 version)
 """
 
 import re
-from xml.dom import Node
+from xml.dom import Node, minidom
 from xml.dom.minidom import Document
 from xml.sax.saxutils import escape
 
-from youtrack.exceptions import YouTrackException
+from youtrack.exceptions import YouTrackBroadException
 
 basestring = (str, bytes)
 EXISTING_FIELD_TYPES = {
@@ -136,17 +136,6 @@ class YouTrackObject(Py3Cmp):
 
     def __setitem__(self, key, value):
         self._data[key] = value
-
-
-class YouTrackError(YouTrackObject):
-    def to_xml(self):
-        super().to_xml()
-
-    def _update(self, xml):
-        if xml.documentElement.tagName == 'error':
-            self.error = self._text(xml.documentElement)
-        else:
-            self.error = xml.toxml()
 
 
 class Issue(YouTrackObject):
@@ -784,3 +773,37 @@ class ProjectTimeTrackingSettings(YouTrackObject):
                 self['EstimateField'] = e.getAttribute('name')
             elif e.tagName.lower() == 'spenttime':
                 self['TimeSpentField'] = e.getAttribute('name')
+
+
+class YouTrackError(YouTrackObject):
+    def to_xml(self):
+        super().to_xml()
+
+    def _update(self, xml):
+        if xml.documentElement.tagName == 'error':
+            self.error = self._text(xml.documentElement)
+        else:
+            self.error = xml.toxml()
+
+
+class YouTrackException(Exception):
+    def __init__(self, url, response, content):
+        self.response = response
+        self.content = content
+        msg = 'Error for [' + url + "]: " + str(response.status)
+
+        if response.reason is not None:
+            msg += ": " + response.reason
+
+        if 'content-type' in response:
+            ct = response["content-type"]
+            if ct is not None and ct.find('text/html') == -1:
+                try:
+                    xml = minidom.parseString(content)
+                    self.error = YouTrackError(xml, self)
+                    msg += ": " + self.error.error
+                except YouTrackBroadException:
+                    self.error = content
+                    msg += ": " + self.error
+
+        super().__init__(msg)

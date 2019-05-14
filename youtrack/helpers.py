@@ -1,6 +1,6 @@
 import urllib
 
-from youtrack import YouTrackException
+from youtrack.youtrack import YouTrackException
 from youtrack.exceptions import LogicException
 
 

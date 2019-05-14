@@ -5,7 +5,6 @@ from datetime import datetime
 import httplib2
 from xml.dom import minidom
 import sys
-import youtrack
 from xml.dom import Node
 import urllib
 import urllib.parse
@@ -18,7 +17,7 @@ import functools
 import re
 import io
 
-import youtrack.exceptions
+from youtrack import youtrack, exceptions
 from youtrack.helpers import urlquote, utf8encode
 
 
@@ -29,7 +28,7 @@ def relogin_on_401(function):
         while attempts:
             try:
                 return function(self, *args, **kwargs)
-            except youtrack.exceptions.YouTrackException as e:
+            except youtrack.YouTrackException as e:
                 if e.response.status not in (401, 403, 500, 504):
                     raise e
                 if e.response.status == 504:
@@ -43,7 +42,7 @@ def relogin_on_401(function):
 
 
 class Connection(object):
-    def __init__(self, url, login=None, password=None, proxy_info=None, api_key=None, disable_ssl=True):
+    def __init__(self, url, token, proxy_info=None, disable_ssl=True):
         if proxy_info is None:
             self.http = httplib2.Http(disable_ssl_certificate_validation=disable_ssl)
         else:
@@ -55,21 +54,8 @@ class Connection(object):
 
         self.url = url
         self.base_url = url + "/rest"
-        if api_key is None:
-            self._credentials = (login, password)
-            self._login(*self._credentials)
-        else:
-            self.headers = {'X-YouTrack-ApiKey': api_key}
-
-    def _login(self, login, password):
-        response, content = self.http.request(
-            self.base_url + "/user/login?login=" + urllib.parse.quote_plus(login) + "&password=" +
-            urllib.parse.quote_plus(password), 'POST',
-            headers={'Content-Length': '0', 'Connection': 'keep-alive'})
-        if response.status != 200:
-            raise youtrack.exceptions.YouTrackException('/user/login', response, content)
-        self.headers = {'Cookie': response['set-cookie'],
-                        'Cache-Control': 'no-cache'}
+        self.token = "Bearer {}".format(token)
+        self.headers = {"Authorization": self.token}
 
     @relogin_on_401
     def _req(self, method, url, body=None, ignore_status=None, content_type=None, accept_header=None):
@@ -94,7 +80,7 @@ class Connection(object):
         _illegal_xml_chars_re = re.compile('[%s]' % ''.join(_illegal_ranges))
         content = re.sub(_illegal_xml_chars_re, '', content.decode('utf-8')).encode('utf-8')
         if response.status != 200 and response.status != 201 and (ignore_status != response.status):
-            raise youtrack.exceptions.YouTrackException(url, response, content)
+            raise youtrack.YouTrackException(url, response, content)
 
         return response, content
 
@@ -105,12 +91,12 @@ class Connection(object):
                     'text/xml') != -1) and content is not None and content != '':
                 try:
                     return minidom.parseString(content)
-                except youtrack.exceptions.YouTrackBroadException:
+                except exceptions.YouTrackBroadException:
                     return ""
             elif response['content-type'].find('application/json') != -1 and content is not None and content != '':
                 try:
                     return json.loads(content)
-                except youtrack.exceptions.YouTrackBroadException:
+                except exceptions.YouTrackBroadException:
                     return ""
 
         if method == 'PUT' and ('location' in response.keys()):
@@ -230,14 +216,14 @@ class Connection(object):
                 print("IssueId: ", issue_id)
                 print("Attachment filename: ", attach_name)
                 print("Attachment URL: ", attach_url)
-            except youtrack.exceptions.YouTrackBroadException:
+            except exceptions.YouTrackBroadException:
                 pass
-        except youtrack.exceptions.YouTrackBroadException as e:
+        except exceptions.YouTrackBroadException as e:
             try:
                 print(content.geturl())
                 print(content.getcode())
                 print(content.info())
-            except youtrack.exceptions.YouTrackBroadException:
+            except exceptions.YouTrackBroadException:
                 pass
             raise e
 
@@ -269,7 +255,7 @@ class Connection(object):
         else:
             try:
                 params['created'] = self.get_issue(issue_id)['created']
-            except youtrack.exceptions.YouTrackException:
+            except youtrack.YouTrackException:
                 params['created'] = str(calendar.timegm(datetime.now().timetuple()) * 1000)
 
         url = self.base_url + url_prefix + issue_id + "/attachment?" + urllib.parse.urlencode(params)
@@ -457,7 +443,7 @@ class Connection(object):
         response = ""
         try:
             response = result.toxml().encode('utf-8')
-        except youtrack.exceptions.YouTrackBroadException:
+        except exceptions.YouTrackBroadException:
             sys.stderr.write("can't parse response")
             sys.stderr.write("request was")
             sys.stderr.write(xml)
@@ -901,7 +887,7 @@ class Connection(object):
             xml = minidom.parseString(content)
             return [youtrack.WorkItem(e, self) for e in xml.documentElement.childNodes if
                     e.nodeType == Node.ELEMENT_NODE]
-        except youtrack.exceptions.YouTrackException as e:
+        except youtrack.YouTrackException as e:
             print("Can't get work items.", str(e))
             return []
 
@@ -967,7 +953,7 @@ class Connection(object):
         try:
             cont = self._get('/admin/timetracking')
             return youtrack.GlobalTimeTrackingSettings(cont, self)
-        except youtrack.exceptions.YouTrackException as e:
+        except youtrack.YouTrackException as e:
             if e.response.status != 404:
                 raise e
 
@@ -975,7 +961,7 @@ class Connection(object):
         try:
             cont = self._get('/admin/project/' + project_id + '/timetracking')
             return youtrack.ProjectTimeTrackingSettings(cont, self)
-        except youtrack.exceptions.YouTrackException as e:
+        except youtrack.YouTrackException as e:
             if e.response.status != 404:
                 raise e
 
