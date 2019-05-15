@@ -41,6 +41,16 @@ def relogin_on_401(function):
     return wrapped
 
 
+def exclude_illegal_characters(content):
+    illegal_unichrs = [(0x00, 0x08), (0x0B, 0x0C), (0x0E, 0x1F),
+                       (0x7F, 0x84), (0x86, 0x9F), (0xFDD0, 0xFDDF),
+                       (0xFFFE, 0xFFFF)]
+    illegal_ranges = ["%s-%s" % (chr(low), chr(high))
+                      for (low, high) in illegal_unichrs]
+    illegal_xml_chars_re = re.compile('[%s]' % ''.join(illegal_ranges))
+    return re.sub(illegal_xml_chars_re, '', content.decode('utf-8')).encode('utf-8')
+
+
 class Connection(object):
     def __init__(self, url, token, proxy_info=None, disable_ssl=False):
         if proxy_info is None:
@@ -61,7 +71,7 @@ class Connection(object):
     def _req(self, method, url, body=None, ignore_status=None, content_type=None, accept_header=None):
         headers = self.headers
         headers = headers.copy()
-        if method == 'PUT' or method == 'POST':
+        if method in ['PUT', 'POST']:
             if content_type is None:
                 content_type = 'application/xml; charset=UTF-8'
             headers['Content-Type'] = content_type
@@ -72,13 +82,8 @@ class Connection(object):
 
         response, content = self.http.request(self.base_url + url, method, headers=headers, body=body)
         content = content.translate(None, '\0'.encode('utf-8'))
-        _illegal_unichrs = [(0x00, 0x08), (0x0B, 0x0C), (0x0E, 0x1F),
-                            (0x7F, 0x84), (0x86, 0x9F), (0xFDD0, 0xFDDF),
-                            (0xFFFE, 0xFFFF)]
-        _illegal_ranges = ["%s-%s" % (chr(low), chr(high))
-                           for (low, high) in _illegal_unichrs]
-        _illegal_xml_chars_re = re.compile('[%s]' % ''.join(_illegal_ranges))
-        content = re.sub(_illegal_xml_chars_re, '', content.decode('utf-8')).encode('utf-8')
+
+        content = exclude_illegal_characters(content)
         if response.status != 200 and response.status != 201 and (ignore_status != response.status):
             raise youtrack.YouTrackException(url, response, content)
 
