@@ -1,11 +1,22 @@
 import urllib
 
-from youtrack.youtrack import YouTrackException
-from youtrack.exceptions import LogicException
+from youtrack.exceptions import LogicException, YouTrackException
 
+basestring = (str, bytes)
 
-def urlquote(s):
-    return urllib.parse.quote(utf8encode(s), safe="")
+EXISTING_FIELD_TYPES = {
+    'numberInProject': 'integer',
+    'summary': 'string',
+    'description': 'string',
+    'created': 'date',
+    'updated': 'date',
+    'updaterName': 'user[1]',
+    'resolved': 'date',
+    'reporterName': 'user[1]',
+    'watcherName': 'user[*]',
+    'voterName': 'user[*]'
+}
+EXISTING_FIELDS = ['numberInProject', 'projectShortName'] + [x for x in EXISTING_FIELD_TYPES.keys()]
 
 
 def utf8encode(source):
@@ -181,3 +192,14 @@ def create_bundle_safe(connection, bundle_name, bundle_type):
 def calculate_missing_value_names(bundle, value_names):
     bundle_elements_names = [elem.name.lower() for elem in bundle.values]
     return [value for value in value_names if value.lower() not in bundle_elements_names]
+
+
+def cmp(a, b):
+    return (a > b) - (a < b)
+
+
+def to_str(a):
+    if isinstance(a, bytes):
+        return a.decode('utf-8')
+    else:
+        return str(a)
